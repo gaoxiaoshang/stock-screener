@@ -132,6 +132,12 @@
         .chart-btn:hover {
             background-color: #2980b9;
         }
+        .timestamp {
+            display: block;
+            font-size: 12px;
+            color: #777;
+            margin-top: 3px;
+        }
     </style>
 </head>
 <body>
@@ -449,6 +455,10 @@
                 // Get current price (most recent close)
                 const currentPrice = closes[closes.length - 1];
                 
+                // Get the timestamp of the most recent price
+                const priceTimestamp = new Date(timestamps[timestamps.length - 1] * 1000);
+                const formattedTimestamp = priceTimestamp.toLocaleString();
+                
                 // Calculate 250-day return (or as far back as we have data)
                 const startIndex = Math.max(0, closes.length - 250);
                 const startPrice = closes[startIndex];
@@ -477,6 +487,7 @@
                     'Ticker': ticker,
                     'Company Name': priceInfo.shortName || `${ticker} Inc.`,
                     'Current Price': currentPrice,
+                    'Price Timestamp': formattedTimestamp,
                     'Market Cap (B)': marketCap,
                     '250-Day Return': return250d,
                     'Sector': profile.sector || 'N/A'
@@ -484,12 +495,17 @@
             } catch (error) {
                 console.error(`Error fetching data for ${ticker}:`, error);
                 
+                // Get current date and time for mock data
+                const now = new Date();
+                const formattedTimestamp = now.toLocaleString();
+                
                 // For demonstration purposes, provide realistic mock data for well-known stocks
                 if (ticker === "NVDA") {
                     return {
                         'Ticker': "NVDA",
                         'Company Name': "NVIDIA Corporation",
                         'Current Price': 125.69,
+                        'Price Timestamp': formattedTimestamp,
                         'Market Cap (B)': 310.2,
                         '250-Day Return': 85.4,
                         'Sector': "Technology"
@@ -499,6 +515,7 @@
                         'Ticker': "AAPL",
                         'Company Name': "Apple Inc.",
                         'Current Price': 189.98,
+                        'Price Timestamp': formattedTimestamp,
                         'Market Cap (B)': 2950.5,
                         '250-Day Return': 15.2,
                         'Sector': "Technology"
@@ -508,6 +525,7 @@
                         'Ticker': "MSFT",
                         'Company Name': "Microsoft Corporation",
                         'Current Price': 415.32,
+                        'Price Timestamp': formattedTimestamp,
                         'Market Cap (B)': 3090.1,
                         '250-Day Return': 25.7,
                         'Sector': "Technology"
@@ -519,6 +537,7 @@
                     'Ticker': ticker,
                     'Company Name': `${ticker} Inc.`,
                     'Current Price': 0,
+                    'Price Timestamp': formattedTimestamp,
                     'Market Cap (B)': 0,
                     '250-Day Return': 0,
                     'Sector': 'N/A'
@@ -624,10 +643,13 @@
                 filteredStocks.forEach(stock => {
                     const row = document.createElement('tr');
                     
+                    // Use the timestamp from the API if available, otherwise use current time
+                    const timestamp = stock['Price Timestamp'] || new Date().toLocaleString();
+                    
                     row.innerHTML = `
                         <td>${stock.Ticker}</td>
                         <td>${stock['Company Name']}</td>
-                        <td>$${stock['Current Price'] ? stock['Current Price'].toFixed(2) : 'N/A'}</td>
+                        <td>$${stock['Current Price'] ? stock['Current Price'].toFixed(2) : 'N/A'} <span class="timestamp">更新时间: ${timestamp}</span></td>
                         <td>$${stock['Market Cap (B)'] ? stock['Market Cap (B)'].toFixed(2) : 'N/A'}B</td>
                         <td>${stock['250-Day Return'] ? stock['250-Day Return'].toFixed(2) : 'N/A'}%</td>
                         <td>${stock.Sector}</td>
