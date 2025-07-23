@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票智能筛选器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="number"], select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .checkbox-group {
+            margin-top: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .stats {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .stat-card {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            flex: 1;
+            min-width: 200px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 2s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>股票智能筛选器</h1>
+        
+        <form id="screenForm">
+            <div class="form-group">
+                <label for="numStocks">分析股票数量:</label>
+                <input type="number" id="numStocks" name="numStocks" min="10" max="100" value="50">
+            </div>
+            
+            <div class="form-group">
+                <label for="minMarketCap">最小市值 (十亿美元):</label>
+                <input type="number" id="minMarketCap" name="minMarketCap" min="0" step="0.5" value="2.0">
+            </div>
+            
+            <div class="form-group">
+                <label for="minPrice">最小股价 (美元):</label>
+                <input type="number" id="minPrice" name="minPrice" min="0" step="0.5" value="10.0">
+            </div>
+            
+            <div class="form-group checkbox-group">
+                <input type="checkbox" id="positiveReturn" name="positiveReturn" checked>
+                <label for="positiveReturn" style="display: inline;">只显示250天涨幅为正的股票</label>
+            </div>
+            
+            <button type="submit">筛选股票</button>
+        </form>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>正在获取股票数据，请稍候...</p>
+        </div>
+        
+        <div id="results" style="display: none;">
+            <h2>筛选结果</h2>
+            <p id="resultCount"></p>
+            
+            <table id="stockTable">
+                <thead>
+                    <tr>
+                        <th>股票代码</th>
+                        <th>公司名称</th>
+                        <th>当前价格 ($)</th>
+                        <th>市值 ($B)</th>
+                        <th>250天涨幅 (%)</th>
+                        <th>行业</th>
+                    </tr>
+                </thead>
+                <tbody id="stockTableBody">
+                    <!-- Stock data will be inserted here -->
+                </tbody>
+            </table>
+            
+            <div class="stats" id="statsSection">
+                <!-- Statistics will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Stock tickers
+        const TICKERS = [
+            "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "NVDA", "JPM", "V", "PG",
+            "UNH", "HD", "BAC", "MA", "XOM", "DIS", "CSCO", "VZ", "NFLX", "ADBE",
+            "CRM", "INTC", "PFE", "KO", "PEP", "ABT", "MRK", "WMT", "T", "CVX",
+            "CMCSA", "COST", "TMO", "ACN", "AVGO", "NKE", "MCD", "LLY", "MDT", "NEE",
+            "TXN", "DHR", "IBM", "QCOM", "LOW", "UNP", "HON", "AMGN", "PM", "BMY",
+            "RTX", "SBUX", "LIN", "C", "AMD", "INTU", "BA", "CAT", "GS", "MMM",
+            "GE", "GILD", "MDLZ", "TGT", "ISRG", "BKNG", "SPGI", "BLK", "AXP", "CHTR",
+            "MO", "SCHW", "CVS", "TMUS", "TJX", "AMAT", "FIS", "ZTS", "USB", "PLD",
+            "ANTM", "CCI", "CSX", "CI", "CME", "BDX", "CL", "EQIX", "ICE", "ATVI",
+            "DUK", "SO", "MS", "DE", "ITW", "ADP", "TFC", "APD", "SYK", "NSC"
+        ];
+
+        // Generate mock stock data
+        function generateMockStockData(tickers) {
+            const sectors = ["Technology", "Healthcare", "Finance", "Consumer Goods", "Energy", "Utilities", "Real Estate"];
+            const data = [];
+            
+            for (const ticker of tickers) {
+                // Generate random but realistic data
+                const marketCap = Math.random() * 499.5 + 0.5; // $0.5B to $500B
+                const currentPrice = Math.random() * 495 + 5; // $5 to $500
+                const return250d = Math.random() * 100 - 30; // -30% to +70%
+                
+                // Create mock stock data
+                const stockData = {
+                    'Ticker': ticker,
+                    'Company Name': `${ticker} Inc.`,
+                    'Current Price': currentPrice,
+                    'Market Cap (B)': marketCap,
+                    '250-Day Return': return250d,
+                    'Sector': sectors[Math.floor(Math.random() * sectors.length)]
+                };
+                
+                data.push(stockData);
+            }
+            
+            return data;
+        }
+
+        // Filter stocks based on criteria
+        function filterStocks(stocks, minMarketCap = 2.0, minPrice = 10.0, positiveReturn = true) {
+            return stocks.filter(stock => {
+                return stock['Market Cap (B)'] >= minMarketCap && 
+                       stock['Current Price'] >= minPrice && 
+                       (!positiveReturn || stock['250-Day Return'] > 0);
+            }).sort((a, b) => b['Market Cap (B)'] - a['Market Cap (B)']);
+        }
+
+        // Calculate statistics
+        function calculateStatistics(stocks) {
+            if (!stocks || stocks.length === 0) return null;
+            
+            const avgMarketCap = stocks.reduce((sum, stock) => sum + stock['Market Cap (B)'], 0) / stocks.length;
+            const avgReturn = stocks.reduce((sum, stock) => sum + stock['250-Day Return'], 0) / stocks.length;
+            const maxMarketCap = Math.max(...stocks.map(stock => stock['Market Cap (B)']));
+            const maxReturn = Math.max(...stocks.map(stock => stock['250-Day Return']));
+            
+            return {
+                avg_market_cap: avgMarketCap,
+                avg_return: avgReturn,
+                max_market_cap: maxMarketCap,
+                max_return: maxReturn
+            };
+        }
+
+        // Handle form submission
+        document.getElementById('screenForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Show loading indicator
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            
+            // Get form values
+            const numStocks = parseInt(document.getElementById('numStocks').value);
+            const minMarketCap = parseFloat(document.getElementById('minMarketCap').value);
+            const minPrice = parseFloat(document.getElementById('minPrice').value);
+            const positiveReturn = document.getElementById('positiveReturn').checked;
+            
+            // Simulate API call delay
+            setTimeout(() => {
+                // Generate and filter stock data
+                const selectedTickers = TICKERS.slice(0, numStocks);
+                const stocks = generateMockStockData(selectedTickers);
+                const filteredStocks = filterStocks(stocks, minMarketCap, minPrice, positiveReturn);
+                const stats = calculateStatistics(filteredStocks);
+                
+                // Hide loading indicator
+                document.getElementById('loading').style.display = 'none';
+                
+                // Show results
+                document.getElementById('results').style.display = 'block';
+                
+                // Update result count
+                document.getElementById('resultCount').textContent = 
+                    `找到 ${filteredStocks.length} 支符合条件的股票`;
+                
+                // Clear previous results
+                const tableBody = document.getElementById('stockTableBody');
+                tableBody.innerHTML = '';
+                
+                // Add stock rows
+                filteredStocks.forEach(stock => {
+                    const row = document.createElement('tr');
+                    
+                    row.innerHTML = `
+                        <td>${stock.Ticker}</td>
+                        <td>${stock['Company Name']}</td>
+                        <td>$${stock['Current Price'].toFixed(2)}</td>
+                        <td>$${stock['Market Cap (B)'].toFixed(2)}B</td>
+                        <td>${stock['250-Day Return'].toFixed(2)}%</td>
+                        <td>${stock.Sector}</td>
+                    `;
+                    
+                    tableBody.appendChild(row);
+                });
+                
+                // Update statistics
+                const statsSection = document.getElementById('statsSection');
+                statsSection.innerHTML = '';
+                
+                if (stats) {
+                    const statsData = [
+                        { name: '平均市值', value: `$${stats.avg_market_cap.toFixed(2)}B` },
+                        { name: '平均250天涨幅', value: `${stats.avg_return.toFixed(2)}%` },
+                        { name: '最高市值', value: `$${stats.max_market_cap.toFixed(2)}B` },
+                        { name: '最高250天涨幅', value: `${stats.max_return.toFixed(2)}%` }
+                    ];
+                    
+                    statsData.forEach(stat => {
+                        const statCard = document.createElement('div');
+                        statCard.className = 'stat-card';
+                        statCard.innerHTML = `
+                            <h3>${stat.name}</h3>
+                            <div class="stat-value">${stat.value}</div>
+                        `;
+                        statsSection.appendChild(statCard);
+                    });
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
