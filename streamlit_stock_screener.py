@@ -11,34 +11,53 @@ st.set_page_config(
     layout="wide"
 )
 
-# Generate mock stock data
-def generate_mock_stock_data(tickers):
+import yfinance as yf
+
+# Get real stock data
+def get_stock_data(tickers):
     """
-    Generate mock stock data for demonstration purposes
+    Fetch real stock data using yfinance
     """
-    sectors = ["Technology", "Healthcare", "Finance", "Consumer Goods", "Energy", "Utilities", "Real Estate"]
-    industries = ["Software", "Hardware", "Pharmaceuticals", "Banking", "Retail", "Oil & Gas", "Electric"]
-    
     data = []
     
     for ticker in tickers:
-        # Generate random but realistic data
-        market_cap = random.uniform(0.5, 500)  # $0.5B to $500B
-        current_price = random.uniform(5, 500)  # $5 to $500
-        return_250d = random.uniform(-30, 70)  # -30% to +70%
-        
-        # Create mock stock data
-        stock_data = {
-            'Ticker': ticker,
-            'Company Name': f"{ticker} Inc.",
-            'Current Price': current_price,
-            'Market Cap (B)': market_cap,
-            '250-Day Return': return_250d,
-            'Sector': random.choice(sectors),
-            'Industry': random.choice(industries),
-        }
-        
-        data.append(stock_data)
+        try:
+            # Get stock data
+            stock = yf.Ticker(ticker)
+            
+            # Get real-time price data (most recent available)
+            real_time_data = stock.history(period="1d", interval="1m")
+            current_price = real_time_data['Close'].iloc[-1] if not real_time_data.empty else 0
+            
+            # Get historical data for 250-day return calculation
+            hist = stock.history(period="1y")
+            
+            # Calculate 250-day return
+            if len(hist) >= 250:
+                start_price = hist['Close'].iloc[-250] if len(hist) >= 250 else hist['Close'].iloc[0]
+                end_price = hist['Close'].iloc[-1]
+                return_250d = (end_price - start_price) / start_price * 100
+            else:
+                return_250d = 0
+            
+            # Get basic info
+            info = stock.info
+            market_cap = info.get('marketCap', 0)
+            
+            # Create stock data
+            stock_data = {
+                'Ticker': ticker,
+                'Company Name': info.get('shortName', f"{ticker} Inc."),
+                'Current Price': current_price,
+                'Market Cap (B)': market_cap / 1e9 if market_cap else 0,
+                '250-Day Return': return_250d,
+                'Sector': info.get('sector', 'N/A'),
+                'Industry': info.get('industry', 'N/A'),
+            }
+            
+            data.append(stock_data)
+        except Exception as e:
+            st.sidebar.warning(f"Error fetching data for {ticker}: {str(e)}")
     
     return pd.DataFrame(data)
 
@@ -104,23 +123,32 @@ def main():
     
     # Fetch data button
     if st.sidebar.button("筛选股票"):
-        with st.spinner("正在获取股票数据，请稍候..."):
+        with st.spinner("正在获取实时股票数据，请稍候..."):
             # Use only the selected number of stocks
             selected_tickers = TICKERS[:num_stocks]
             
-            # Generate and filter stock data
+            # Show progress bar
             progress_bar = st.progress(0)
-            for i in range(101):
-                # Update progress bar
-                progress_bar.progress(i)
-                time.sleep(0.01)
             
-            df = generate_mock_stock_data(selected_tickers)
-            filtered_df = filter_stocks(df, min_market_cap, min_price, positive_return)
-            
-            # Store in session state
-            st.session_state.filtered_df = filtered_df
-            st.session_state.all_df = df
+            # Fetch real stock data
+            try:
+                df = get_stock_data(selected_tickers)
+                
+                # Update progress bar to 100%
+                progress_bar.progress(100)
+                
+                if df.empty:
+                    st.error("无法获取股票数据，请稍后再试。")
+                else:
+                    filtered_df = filter_stocks(df, min_market_cap, min_price, positive_return)
+                    
+                    # Store in session state
+                    st.session_state.filtered_df = filtered_df
+                    st.session_state.all_df = df
+                    
+                    st.success(f"成功获取 {len(df)} 支股票的实时数据！")
+            except Exception as e:
+                st.error(f"获取数据时出错: {str(e)}")
             
             # Clear progress bar
             progress_bar.empty()
