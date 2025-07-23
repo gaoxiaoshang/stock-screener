@@ -223,22 +223,33 @@
         // Fetch 10-year historical data for a specific stock
         async function fetch10YearData(ticker) {
             try {
-                // First try with the proxy
-                try {
-                    const proxyUrl = 'https://corsproxy.io/?';
-                    const yahooFinanceUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1mo&range=10y`;
-                    
-                    const response = await fetch(proxyUrl + encodeURIComponent(yahooFinanceUrl));
-                    const data = await response.json();
-                    
-                    if (data && data.chart && data.chart.result && data.chart.result.length > 0) {
-                        return processChartData(data);
+                // Try multiple proxies in sequence until one works
+                const proxies = [
+                    'https://corsproxy.io/?',
+                    'https://api.allorigins.win/raw?url=',
+                    'https://cors-anywhere.herokuapp.com/'
+                ];
+                
+                for (const proxyUrl of proxies) {
+                    try {
+                        console.log(`Trying to fetch data for ${ticker} using proxy: ${proxyUrl}`);
+                        const yahooFinanceUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1mo&range=10y`;
+                        
+                        const response = await fetch(proxyUrl + encodeURIComponent(yahooFinanceUrl));
+                        const data = await response.json();
+                        
+                        if (data && data.chart && data.chart.result && data.chart.result.length > 0) {
+                            console.log(`Successfully fetched data for ${ticker} using proxy: ${proxyUrl}`);
+                            return processChartData(data);
+                        }
+                    } catch (proxyError) {
+                        console.warn(`Proxy ${proxyUrl} request failed:`, proxyError);
+                        // Continue to next proxy
                     }
-                } catch (proxyError) {
-                    console.warn("Proxy request failed, falling back to mock data", proxyError);
                 }
                 
-                // If proxy fails or returns no data, use mock data for demonstration
+                console.warn(`All proxies failed for ${ticker}, falling back to mock data`);
+                // If all proxies fail or return no data, use mock data for demonstration
                 return generateMockChartData(ticker);
             } catch (error) {
                 console.error(`Error in fetch10YearData for ${ticker}:`, error);
@@ -429,69 +440,106 @@
             }
         }
 
-        // Fetch real stock data using a proxy to avoid CORS issues
+        // Fetch real stock data using multiple proxies to avoid CORS issues
         async function fetchStockData(ticker) {
             try {
-                // Use a CORS proxy to access Yahoo Finance API
-                const proxyUrl = 'https://corsproxy.io/?';
-                const yahooFinanceUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`;
+                // Define multiple proxies to try
+                const proxies = [
+                    'https://corsproxy.io/?',
+                    'https://api.allorigins.win/raw?url=',
+                    'https://cors-anywhere.herokuapp.com/'
+                ];
                 
-                const response = await fetch(proxyUrl + encodeURIComponent(yahooFinanceUrl));
-                const data = await response.json();
-                
-                if (!data || !data.chart || !data.chart.result || data.chart.result.length === 0) {
-                    throw new Error('No data available');
+                // Try each proxy in sequence
+                for (const proxyUrl of proxies) {
+                    try {
+                        console.log(`Trying to fetch data for ${ticker} using proxy: ${proxyUrl}`);
+                        const yahooFinanceUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`;
+                        
+                        const response = await fetch(proxyUrl + encodeURIComponent(yahooFinanceUrl));
+                        const data = await response.json();
+                        
+                        if (!data || !data.chart || !data.chart.result || data.chart.result.length === 0) {
+                            console.warn(`No data available from ${proxyUrl} for ${ticker}`);
+                            continue; // Try next proxy
+                        }
+                        
+                        const result = data.chart.result[0];
+                        const quote = result.indicators.quote[0];
+                        const timestamps = result.timestamp;
+                        const closes = quote.close.filter(price => price !== null);
+                        
+                        if (closes.length === 0) {
+                            console.warn(`No price data available from ${proxyUrl} for ${ticker}`);
+                            continue; // Try next proxy
+                        }
+                        
+                        // Get current price (most recent close)
+                        const currentPrice = closes[closes.length - 1];
+                        
+                        // Get the timestamp of the most recent price
+                        const priceTimestamp = new Date(timestamps[timestamps.length - 1] * 1000);
+                        const formattedTimestamp = priceTimestamp.toLocaleString();
+                        
+                        // Calculate 250-day return (or as far back as we have data)
+                        const startIndex = Math.max(0, closes.length - 250);
+                        const startPrice = closes[startIndex];
+                        const return250d = ((currentPrice - startPrice) / startPrice) * 100;
+                        
+                        // Try to get additional info using the same proxy
+                        try {
+                            const summaryUrl = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=summaryProfile,price,defaultKeyStatistics`;
+                            const metaResponse = await fetch(proxyUrl + encodeURIComponent(summaryUrl));
+                            const metaData = await metaResponse.json();
+                            
+                            if (metaData && metaData.quoteSummary && metaData.quoteSummary.result && metaData.quoteSummary.result.length > 0) {
+                                const profile = metaData.quoteSummary.result[0].summaryProfile || {};
+                                const priceInfo = metaData.quoteSummary.result[0].price || {};
+                                
+                                // Extract market cap
+                                let marketCap = 0;
+                                if (priceInfo.marketCap && priceInfo.marketCap.raw) {
+                                    marketCap = priceInfo.marketCap.raw / 1e9; // Convert to billions
+                                }
+                                
+                                console.log(`Successfully fetched complete data for ${ticker} using proxy: ${proxyUrl}`);
+                                
+                                // Create stock data object with all info
+                                return {
+                                    'Ticker': ticker,
+                                    'Company Name': priceInfo.shortName || `${ticker} Inc.`,
+                                    'Current Price': currentPrice,
+                                    'Price Timestamp': formattedTimestamp,
+                                    'Market Cap (B)': marketCap,
+                                    '250-Day Return': return250d,
+                                    'Sector': profile.sector || 'N/A'
+                                };
+                            }
+                        } catch (summaryError) {
+                            console.warn(`Error fetching summary data for ${ticker} using ${proxyUrl}:`, summaryError);
+                        }
+                        
+                        // If we couldn't get the summary data but have price data, return what we have
+                        console.log(`Returning partial data for ${ticker} using proxy: ${proxyUrl}`);
+                        return {
+                            'Ticker': ticker,
+                            'Company Name': `${ticker} Inc.`,
+                            'Current Price': currentPrice,
+                            'Price Timestamp': formattedTimestamp,
+                            'Market Cap (B)': 0,
+                            '250-Day Return': return250d,
+                            'Sector': 'N/A'
+                        };
+                    } catch (proxyError) {
+                        console.warn(`Proxy ${proxyUrl} request failed for ${ticker}:`, proxyError);
+                        // Continue to next proxy
+                    }
                 }
                 
-                const result = data.chart.result[0];
-                const quote = result.indicators.quote[0];
-                const timestamps = result.timestamp;
-                const closes = quote.close.filter(price => price !== null);
+                // If all proxies fail, fall back to mock data
+                console.warn(`All proxies failed for ${ticker}, falling back to mock data`);
                 
-                if (closes.length === 0) {
-                    throw new Error('No price data available');
-                }
-                
-                // Get current price (most recent close)
-                const currentPrice = closes[closes.length - 1];
-                
-                // Get the timestamp of the most recent price
-                const priceTimestamp = new Date(timestamps[timestamps.length - 1] * 1000);
-                const formattedTimestamp = priceTimestamp.toLocaleString();
-                
-                // Calculate 250-day return (or as far back as we have data)
-                const startIndex = Math.max(0, closes.length - 250);
-                const startPrice = closes[startIndex];
-                const return250d = ((currentPrice - startPrice) / startPrice) * 100;
-                
-                // Get additional info using another API call
-                const summaryUrl = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=summaryProfile,price,defaultKeyStatistics`;
-                const metaResponse = await fetch(proxyUrl + encodeURIComponent(summaryUrl));
-                const metaData = await metaResponse.json();
-                
-                if (!metaData || !metaData.quoteSummary || !metaData.quoteSummary.result || metaData.quoteSummary.result.length === 0) {
-                    throw new Error('No summary data available');
-                }
-                
-                const profile = metaData.quoteSummary.result[0].summaryProfile || {};
-                const priceInfo = metaData.quoteSummary.result[0].price || {};
-                
-                // Extract market cap
-                let marketCap = 0;
-                if (priceInfo.marketCap && priceInfo.marketCap.raw) {
-                    marketCap = priceInfo.marketCap.raw / 1e9; // Convert to billions
-                }
-                
-                // Create stock data object
-                return {
-                    'Ticker': ticker,
-                    'Company Name': priceInfo.shortName || `${ticker} Inc.`,
-                    'Current Price': currentPrice,
-                    'Price Timestamp': formattedTimestamp,
-                    'Market Cap (B)': marketCap,
-                    '250-Day Return': return250d,
-                    'Sector': profile.sector || 'N/A'
-                };
+                throw new Error('All proxies failed');
             } catch (error) {
                 console.error(`Error fetching data for ${ticker}:`, error);
                 
