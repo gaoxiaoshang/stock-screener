@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>股票智能筛选器</title>
+    <!-- ApexCharts for creating beautiful charts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -19,6 +21,11 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        #chartContainer {
+            height: 500px;
+            margin-top: 30px;
+            display: none;
         }
         h1 {
             color: #333;
@@ -112,6 +119,19 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .chart-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .chart-btn:hover {
+            background-color: #2980b9;
+        }
     </style>
 </head>
 <body>
@@ -160,6 +180,7 @@
                         <th>市值 ($B)</th>
                         <th>250天涨幅 (%)</th>
                         <th>行业</th>
+                        <th>操作</th>
                     </tr>
                 </thead>
                 <tbody id="stockTableBody">
@@ -169,6 +190,11 @@
             
             <div class="stats" id="statsSection">
                 <!-- Statistics will be inserted here -->
+            </div>
+            
+            <div id="chartContainer">
+                <h2 id="chartTitle">10年K线图</h2>
+                <div id="stockChart" style="width: 100%; height: 450px;"></div>
             </div>
         </div>
     </div>
@@ -187,6 +213,111 @@
             "ANTM", "CCI", "CSX", "CI", "CME", "BDX", "CL", "EQIX", "ICE", "ATVI",
             "DUK", "SO", "MS", "DE", "ITW", "ADP", "TFC", "APD", "SYK", "NSC"
         ];
+
+        // Fetch 10-year historical data for a specific stock
+        async function fetch10YearData(ticker) {
+            try {
+                const proxyUrl = 'https://corsproxy.io/?';
+                const yahooFinanceUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1mo&range=10y`;
+                
+                const response = await fetch(proxyUrl + encodeURIComponent(yahooFinanceUrl));
+                const data = await response.json();
+                
+                if (!data || !data.chart || !data.chart.result || data.chart.result.length === 0) {
+                    throw new Error('No historical data available');
+                }
+                
+                const result = data.chart.result[0];
+                const timestamps = result.timestamp;
+                const quote = result.indicators.quote[0];
+                
+                // Extract OHLC data
+                const chartData = [];
+                for (let i = 0; i < timestamps.length; i++) {
+                    if (quote.open[i] && quote.high[i] && quote.low[i] && quote.close[i]) {
+                        chartData.push({
+                            x: new Date(timestamps[i] * 1000),
+                            y: [
+                                quote.open[i],
+                                quote.high[i],
+                                quote.low[i],
+                                quote.close[i]
+                            ]
+                        });
+                    }
+                }
+                
+                return chartData;
+            } catch (error) {
+                console.error(`Error fetching 10-year data for ${ticker}:`, error);
+                return [];
+            }
+        }
+        
+        // Create and display a candlestick chart
+        function createCandlestickChart(ticker, chartData, companyName) {
+            document.getElementById('chartContainer').style.display = 'block';
+            document.getElementById('chartTitle').textContent = `${companyName} (${ticker}) 10年K线图`;
+            
+            // Clear any existing chart
+            document.getElementById('stockChart').innerHTML = '';
+            
+            const options = {
+                series: [{
+                    name: ticker,
+                    data: chartData
+                }],
+                chart: {
+                    type: 'candlestick',
+                    height: 450,
+                    fontFamily: 'Arial, sans-serif',
+                    animations: {
+                        enabled: false
+                    }
+                },
+                title: {
+                    text: `${companyName} (${ticker}) 股价走势`,
+                    align: 'left'
+                },
+                xaxis: {
+                    type: 'datetime',
+                    labels: {
+                        formatter: function(val) {
+                            return new Date(val).toLocaleDateString();
+                        }
+                    }
+                },
+                yaxis: {
+                    tooltip: {
+                        enabled: true
+                    },
+                    labels: {
+                        formatter: function(val) {
+                            return '$' + val.toFixed(2);
+                        }
+                    }
+                },
+                tooltip: {
+                    x: {
+                        format: 'yyyy MMM dd'
+                    }
+                },
+                plotOptions: {
+                    candlestick: {
+                        colors: {
+                            upward: '#3C90EB',
+                            downward: '#DF7D46'
+                        }
+                    }
+                }
+            };
+            
+            const chart = new ApexCharts(document.getElementById('stockChart'), options);
+            chart.render();
+            
+            // Scroll to chart
+            document.getElementById('chartContainer').scrollIntoView({ behavior: 'smooth' });
+        }
 
         // Fetch real stock data using a proxy to avoid CORS issues
         async function fetchStockData(ticker) {
@@ -396,9 +527,30 @@
                         <td>$${stock['Market Cap (B)'] ? stock['Market Cap (B)'].toFixed(2) : 'N/A'}B</td>
                         <td>${stock['250-Day Return'] ? stock['250-Day Return'].toFixed(2) : 'N/A'}%</td>
                         <td>${stock.Sector}</td>
+                        <td><button class="chart-btn" data-ticker="${stock.Ticker}" data-company="${stock['Company Name']}">查看K线图</button></td>
                     `;
                     
                     tableBody.appendChild(row);
+                });
+                
+                // Add event listeners to chart buttons
+                document.querySelectorAll('.chart-btn').forEach(button => {
+                    button.addEventListener('click', async function() {
+                        const ticker = this.getAttribute('data-ticker');
+                        const companyName = this.getAttribute('data-company');
+                        
+                        // Show loading in chart area
+                        document.getElementById('chartContainer').style.display = 'block';
+                        document.getElementById('chartTitle').textContent = `正在加载 ${companyName} (${ticker}) 的10年K线图...`;
+                        document.getElementById('stockChart').innerHTML = '<div class="spinner" style="margin: 100px auto;"></div>';
+                        
+                        // Scroll to chart
+                        document.getElementById('chartContainer').scrollIntoView({ behavior: 'smooth' });
+                        
+                        // Fetch 10-year data and create chart
+                        const chartData = await fetch10YearData(ticker);
+                        createCandlestickChart(ticker, chartData, companyName);
+                    });
                 });
                 
                 // Update statistics
