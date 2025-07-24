@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,7 +20,7 @@
             background-color: white;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
         #chartContainer {
             height: 500px;
@@ -39,7 +39,7 @@
             margin-bottom: 5px;
             font-weight: bold;
         }
-        input[type="number"], select {
+        input[type="number"], select, input[type="text"] {
             width: 100%;
             padding: 8px;
             border: 1px solid #ddd;
@@ -90,7 +90,7 @@
             border-radius: 8px;
             flex: 1;
             min-width: 200px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
         .stat-card h3 {
             margin-top: 0;
@@ -142,74 +142,145 @@
             color: #e74c3c;
             font-style: italic;
         }
+        .nav-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .nav-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+            background-color: #f8f8f8;
+        }
+        .nav-tab.active {
+            background-color: white;
+            border-color: #ddd;
+            border-bottom-color: white;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .quick-search {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        .quick-search h2 {
+            margin-top: 0;
+            color: #333;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>股票智能筛选器</h1>
         
-        <form id="screenForm">
-            <div class="form-group">
-                <label for="numStocks">分析股票数量:</label>
-                <input type="number" id="numStocks" name="numStocks" min="10" max="100" value="50">
-            </div>
-            
-            <div class="form-group">
-                <label for="minMarketCap">最小市值 (十亿美元):</label>
-                <input type="number" id="minMarketCap" name="minMarketCap" min="0" step="0.5" value="2.0">
-            </div>
-            
-            <div class="form-group">
-                <label for="minPrice">最小股价 (美元):</label>
-                <input type="number" id="minPrice" name="minPrice" min="0" step="0.5" value="10.0">
-            </div>
-            
-            <div class="form-group checkbox-group">
-                <input type="checkbox" id="positiveReturn" name="positiveReturn" checked>
-                <label for="positiveReturn" style="display: inline;">只显示250天涨幅为正的股票</label>
-            </div>
-            
-            <button type="submit">筛选股票</button>
-        </form>
-        
-        <div id="loading" class="loading">
-            <div class="spinner"></div>
-            <p>正在获取股票数据，请稍候...</p>
+        <div class="nav-tabs">
+            <div class="nav-tab active" data-tab="screener">股票筛选</div>
+            <div class="nav-tab" data-tab="query">单股查询</div>
         </div>
         
-        <div id="results" style="display: none;">
-            <h2>筛选结果</h2>
-            <p id="resultCount"></p>
-            
-            <table id="stockTable">
-                <thead>
-                    <tr>
-                        <th>股票代码</th>
-                        <th>公司名称</th>
-                        <th>当前价格 ($)</th>
-                        <th>市值 ($B)</th>
-                        <th>250天涨幅 (%)</th>
-                        <th>行业</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="stockTableBody">
-                    <!-- Stock data will be inserted here -->
-                </tbody>
-            </table>
-            
-            <div class="stats" id="statsSection">
-                <!-- Statistics will be inserted here -->
+        <div id="queryTab" class="tab-content">
+            <div class="quick-search">
+                <h2>快速股票查询</h2>
+                <p>输入股票代码，获取今日价格和市值信息。</p>
+                <div class="form-group">
+                    <input type="text" id="quickSearchTicker" placeholder="输入股票代码 (例如: AAPL, MSFT, BABA)">
+                    <button onclick="window.location.href='stock_query.html?ticker=' + document.getElementById('quickSearchTicker').value">查询</button>
+                </div>
+                <p>或者 <a href="stock_query.html">前往详细查询页面</a></p>
             </div>
-            
-            <div id="chartContainer">
-                <h2 id="chartTitle">10年K线图</h2>
-                <div id="stockChart" style="width: 100%; height: 450px;"></div>
+        </div>
+        
+        <div id="screenerTab" class="tab-content active">
+            <form id="screenForm">
+                <div class="form-group">
+                    <label for="numStocks">分析股票数量:</label>
+                    <input type="number" id="numStocks" name="numStocks" min="10" max="100" value="50">
+                </div>
+
+                <div class="form-group">
+                    <label for="minMarketCap">最小市值 (十亿美元):</label>
+                    <input type="number" id="minMarketCap" name="minMarketCap" min="0" step="0.5" value="2.0">
+                </div>
+
+                <div class="form-group">
+                    <label for="minPrice">最小股价 (美元):</label>
+                    <input type="number" id="minPrice" name="minPrice" min="0" step="0.5" value="10.0">
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="positiveReturn" name="positiveReturn" checked>
+                    <label for="positiveReturn" style="display: inline;">只显示250天涨幅为正的股票</label>
+                </div>
+
+                <button type="submit">筛选股票</button>
+            </form>
+
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>正在获取股票数据，请稍候...</p>
+            </div>
+
+            <div id="results" style="display: none;">
+                <h2>筛选结果</h2>
+                <p id="resultCount"></p>
+
+                <table id="stockTable">
+                    <thead>
+                        <tr>
+                            <th>股票代码</th>
+                            <th>公司名称</th>
+                            <th>当前价格 ($)</th>
+                            <th>市值 ($B)</th>
+                            <th>250天涨幅 (%)</th>
+                            <th>行业</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stockTableBody">
+                        <!-- Stock data will be inserted here -->
+                    </tbody>
+                </table>
+
+                <div class="stats" id="statsSection">
+                    <!-- Statistics will be inserted here -->
+                </div>
+
+                <div id="chartContainer">
+                    <h2 id="chartTitle">10年K线图</h2>
+                    <div id="stockChart" style="width: 100%; height: 450px;"></div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        // 切换标签页
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                // 移除所有标签页的active类
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                // 添加当前标签页的active类
+                this.classList.add('active');
+                
+                // 隐藏所有内容
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                // 显示当前内容
+                document.getElementById(this.getAttribute('data-tab') + 'Tab').classList.add('active');
+            });
+        });
+    
         // Stock tickers
         const TICKERS = [
             "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "NVDA", "JPM", "V", "PG",
@@ -233,15 +304,15 @@
                     'https://api.allorigins.win/raw?url=',
                     'https://cors-anywhere.herokuapp.com/'
                 ];
-                
+
                 for (const proxyUrl of proxies) {
                     try {
                         console.log(`Trying to fetch data for ${ticker} using proxy: ${proxyUrl}`);
                         const yahooFinanceUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1mo&range=10y`;
-                        
+
                         const response = await fetch(proxyUrl + encodeURIComponent(yahooFinanceUrl));
                         const data = await response.json();
-                        
+
                         if (data && data.chart && data.chart.result && data.chart.result.length > 0) {
                             console.log(`Successfully fetched data for ${ticker} using proxy: ${proxyUrl}`);
                             return processChartData(data);
@@ -251,7 +322,7 @@
                         // Continue to next proxy
                     }
                 }
-                
+
                 console.warn(`All proxies failed for ${ticker}`);
                 return null; // Return null instead of mock data
             } catch (error) {
@@ -259,17 +330,17 @@
                 return null; // Return null instead of mock data
             }
         }
-        
+
         // Process chart data from Yahoo Finance API
         function processChartData(data) {
             const result = data.chart.result[0];
             const timestamps = result.timestamp;
             const quote = result.indicators.quote[0];
-            
+
             // Extract OHLC data
             const chartData = [];
             for (let i = 0; i < timestamps.length; i++) {
-                if (quote.open[i] !== null && quote.high[i] !== null && 
+                if (quote.open[i] !== null && quote.high[i] !== null &&
                     quote.low[i] !== null && quote.close[i] !== null) {
                     chartData.push({
                         x: new Date(timestamps[i] * 1000),
@@ -282,27 +353,27 @@
                     });
                 }
             }
-            
+
             return chartData;
         }
-        
+
         // Create and display a candlestick chart
         function createCandlestickChart(ticker, chartData, companyName) {
             document.getElementById('chartContainer').style.display = 'block';
             document.getElementById('chartTitle').textContent = `${companyName} (${ticker}) 10年K线图`;
-            
+
             // Clear any existing chart
             document.getElementById('stockChart').innerHTML = '';
-            
+
             // Check if we have data
             if (!chartData || chartData.length === 0) {
-                document.getElementById('stockChart').innerHTML = 
+                document.getElementById('stockChart').innerHTML =
                     '<div style="text-align: center; padding: 50px;">无法获取历史数据，Yahoo Finance API 请求失败。</div>';
                 return;
             }
-            
+
             console.log(`Creating chart for ${ticker} with ${chartData.length} data points`);
-            
+
             const options = {
                 series: [{
                     name: ticker,
@@ -362,7 +433,7 @@
                             downward: '#ef5350'
                         },
                         wick: {
-                            useFillColor: true,
+                            useFillColor: true
                         }
                     }
                 },
@@ -375,16 +446,16 @@
                     }
                 }]
             };
-            
+
             try {
                 const chart = new ApexCharts(document.getElementById('stockChart'), options);
                 chart.render();
-                
+
                 // Scroll to chart
                 document.getElementById('chartContainer').scrollIntoView({ behavior: 'smooth' });
             } catch (error) {
                 console.error('Error rendering chart:', error);
-                document.getElementById('stockChart').innerHTML = 
+                document.getElementById('stockChart').innerHTML =
                     '<div style="text-align: center; padding: 50px;">渲染图表时出错，请稍后再试。</div>';
             }
         }
@@ -398,61 +469,61 @@
                     'https://api.allorigins.win/raw?url=',
                     'https://cors-anywhere.herokuapp.com/'
                 ];
-                
+
                 // Try each proxy in sequence
                 for (const proxyUrl of proxies) {
                     try {
                         console.log(`Trying to fetch data for ${ticker} using proxy: ${proxyUrl}`);
                         const yahooFinanceUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`;
-                        
+
                         const response = await fetch(proxyUrl + encodeURIComponent(yahooFinanceUrl));
                         const data = await response.json();
-                        
+
                         if (!data || !data.chart || !data.chart.result || data.chart.result.length === 0) {
                             console.warn(`No data available from ${proxyUrl} for ${ticker}`);
                             continue; // Try next proxy
                         }
-                        
+
                         const result = data.chart.result[0];
                         const quote = result.indicators.quote[0];
                         const timestamps = result.timestamp;
                         const closes = quote.close.filter(price => price !== null);
-                        
+
                         if (closes.length === 0) {
                             console.warn(`No price data available from ${proxyUrl} for ${ticker}`);
                             continue; // Try next proxy
                         }
-                        
+
                         // Get current price (most recent close)
                         const currentPrice = closes[closes.length - 1];
-                        
+
                         // Get the timestamp of the most recent price
                         const priceTimestamp = new Date(timestamps[timestamps.length - 1] * 1000);
                         const formattedTimestamp = priceTimestamp.toLocaleString();
-                        
+
                         // Calculate 250-day return (or as far back as we have data)
                         const startIndex = Math.max(0, closes.length - 250);
                         const startPrice = closes[startIndex];
                         const return250d = ((currentPrice - startPrice) / startPrice) * 100;
-                        
+
                         // Try to get additional info using the same proxy
                         try {
                             const summaryUrl = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=summaryProfile,price,defaultKeyStatistics`;
                             const metaResponse = await fetch(proxyUrl + encodeURIComponent(summaryUrl));
                             const metaData = await metaResponse.json();
-                            
+
                             if (metaData && metaData.quoteSummary && metaData.quoteSummary.result && metaData.quoteSummary.result.length > 0) {
                                 const profile = metaData.quoteSummary.result[0].summaryProfile || {};
                                 const priceInfo = metaData.quoteSummary.result[0].price || {};
-                                
+
                                 // Extract market cap
                                 let marketCap = 0;
                                 if (priceInfo.marketCap && priceInfo.marketCap.raw) {
                                     marketCap = priceInfo.marketCap.raw / 1e9; // Convert to billions
                                 }
-                                
+
                                 console.log(`Successfully fetched complete data for ${ticker} using proxy: ${proxyUrl}`);
-                                
+
                                 // Create stock data object with all info
                                 return {
                                     'Ticker': ticker,
@@ -467,7 +538,7 @@
                         } catch (summaryError) {
                             console.warn(`Error fetching summary data for ${ticker} using ${proxyUrl}:`, summaryError);
                         }
-                        
+
                         // If we couldn't get the summary data but have price data, return what we have
                         console.log(`Returning partial data for ${ticker} using proxy: ${proxyUrl}`);
                         return {
@@ -484,14 +555,14 @@
                         // Continue to next proxy
                     }
                 }
-                
+
                 // If all proxies fail, return error status
                 console.warn(`All proxies failed for ${ticker}`);
-                
+
                 throw new Error('All proxies failed');
             } catch (error) {
                 console.error(`Error fetching data for ${ticker}:`, error);
-                
+
                 // Return error status instead of mock data
                 return {
                     'Ticker': ticker,
@@ -506,24 +577,24 @@
             const stocks = [];
             const loadingText = document.querySelector('#loading p');
             const originalText = loadingText.textContent;
-            
+
             for (let i = 0; i < tickers.length; i++) {
                 const ticker = tickers[i];
                 loadingText.textContent = `正在获取 ${ticker} 的数据... (${i+1}/${tickers.length})`;
-                
+
                 try {
                     // Add a small delay between requests to avoid rate limiting
                     if (i > 0) {
                         await new Promise(resolve => setTimeout(resolve, 300));
                     }
-                    
+
                     const stockData = await fetchStockData(ticker);
                     stocks.push(stockData);
                 } catch (error) {
                     console.error(`Error fetching data for ${ticker}:`, error);
                 }
             }
-            
+
             loadingText.textContent = originalText;
             return stocks;
         }
@@ -533,9 +604,9 @@
             return stocks.filter(stock => {
                 // Skip stocks with error
                 if (stock.Error) return false;
-                
-                return stock['Market Cap (B)'] >= minMarketCap && 
-                       stock['Current Price'] >= minPrice && 
+
+                return stock['Market Cap (B)'] >= minMarketCap &&
+                       stock['Current Price'] >= minPrice &&
                        (!positiveReturn || stock['250-Day Return'] > 0);
             }).sort((a, b) => b['Market Cap (B)'] - a['Market Cap (B)']);
         }
@@ -543,12 +614,12 @@
         // Calculate statistics
         function calculateStatistics(stocks) {
             if (!stocks || stocks.length === 0) return null;
-            
+
             const avgMarketCap = stocks.reduce((sum, stock) => sum + stock['Market Cap (B)'], 0) / stocks.length;
             const avgReturn = stocks.reduce((sum, stock) => sum + stock['250-Day Return'], 0) / stocks.length;
             const maxMarketCap = Math.max(...stocks.map(stock => stock['Market Cap (B)']));
             const maxReturn = Math.max(...stocks.map(stock => stock['250-Day Return']));
-            
+
             return {
                 avg_market_cap: avgMarketCap,
                 avg_return: avgReturn,
@@ -560,60 +631,60 @@
         // Handle form submission
         document.getElementById('screenForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             // Show loading indicator
             document.getElementById('loading').style.display = 'block';
             document.getElementById('results').style.display = 'none';
-            
+
             // Get form values
             const numStocks = parseInt(document.getElementById('numStocks').value);
             const minMarketCap = parseFloat(document.getElementById('minMarketCap').value);
             const minPrice = parseFloat(document.getElementById('minPrice').value);
             const positiveReturn = document.getElementById('positiveReturn').checked;
-            
+
             try {
                 // Get selected tickers
                 const selectedTickers = TICKERS.slice(0, numStocks);
-                
+
                 // Fetch real stock data
                 const stocks = await fetchAllStockData(selectedTickers);
-                
+
                 // Count stocks with errors
                 const errorStocks = stocks.filter(stock => stock.Error);
-                
+
                 // Filter stocks based on criteria
                 const filteredStocks = filterStocks(stocks, minMarketCap, minPrice, positiveReturn);
-                
+
                 // Calculate statistics
                 const stats = calculateStatistics(filteredStocks);
-                
+
                 // Hide loading indicator
                 document.getElementById('loading').style.display = 'none';
-                
+
                 // Show results
                 document.getElementById('results').style.display = 'block';
-                
+
                 // Update result count
-                document.getElementById('resultCount').textContent = 
+                document.getElementById('resultCount').textContent =
                     `找到 ${filteredStocks.length} 支符合条件的股票`;
-                
+
                 // Show error message if any
                 if (errorStocks.length > 0) {
-                    document.getElementById('resultCount').innerHTML += 
+                    document.getElementById('resultCount').innerHTML +=
                         `<br><span class="error-message">注意: ${errorStocks.length} 支股票的数据获取失败</span>`;
                 }
-                
+
                 // Clear previous results
                 const tableBody = document.getElementById('stockTableBody');
                 tableBody.innerHTML = '';
-                
+
                 // Add stock rows
                 filteredStocks.forEach(stock => {
                     const row = document.createElement('tr');
-                    
+
                     // Use the timestamp from the API if available
                     const timestamp = stock['Price Timestamp'] || '';
-                    
+
                     row.innerHTML = `
                         <td>${stock.Ticker}</td>
                         <td>${stock['Company Name']}</td>
@@ -623,16 +694,16 @@
                         <td>${stock.Sector}</td>
                         <td><button class="chart-btn" data-ticker="${stock.Ticker}" data-company="${stock['Company Name']}">查看K线图</button></td>
                     `;
-                    
+
                     tableBody.appendChild(row);
                 });
-                
+
                 // Add error stocks to the table
                 if (errorStocks.length > 0) {
                     errorStocks.forEach(stock => {
                         const row = document.createElement('tr');
                         row.style.backgroundColor = "#ffebee";
-                        
+
                         row.innerHTML = `
                             <td>${stock.Ticker}</td>
                             <td colspan="5" style="color: #e74c3c; text-align: center;">
@@ -640,35 +711,35 @@
                             </td>
                             <td><button class="chart-btn" data-ticker="${stock.Ticker}" data-company="${stock.Ticker}">查看K线图</button></td>
                         `;
-                        
+
                         tableBody.appendChild(row);
                     });
                 }
-                
+
                 // Add event listeners to chart buttons
                 document.querySelectorAll('.chart-btn').forEach(button => {
                     button.addEventListener('click', async function() {
                         const ticker = this.getAttribute('data-ticker');
                         const companyName = this.getAttribute('data-company');
-                        
+
                         // Show loading in chart area
                         document.getElementById('chartContainer').style.display = 'block';
                         document.getElementById('chartTitle').textContent = `正在加载 ${companyName} (${ticker}) 的10年K线图...`;
                         document.getElementById('stockChart').innerHTML = '<div class="spinner" style="margin: 100px auto;"></div>';
-                        
+
                         // Scroll to chart
                         document.getElementById('chartContainer').scrollIntoView({ behavior: 'smooth' });
-                        
+
                         // Fetch 10-year data and create chart
                         const chartData = await fetch10YearData(ticker);
                         createCandlestickChart(ticker, chartData, companyName);
                     });
                 });
-                
+
                 // Update statistics
                 const statsSection = document.getElementById('statsSection');
                 statsSection.innerHTML = '';
-                
+
                 if (stats) {
                     const statsData = [
                         { name: '平均市值', value: `$${stats.avg_market_cap.toFixed(2)}B` },
@@ -676,7 +747,7 @@
                         { name: '最高市值', value: `$${stats.max_market_cap.toFixed(2)}B` },
                         { name: '最高250天涨幅', value: `${stats.max_return.toFixed(2)}%` }
                     ];
-                    
+
                     statsData.forEach(stat => {
                         const statCard = document.createElement('div');
                         statCard.className = 'stat-card';
@@ -691,6 +762,13 @@
                 console.error('Error:', error);
                 document.getElementById('loading').style.display = 'none';
                 alert('获取股票数据时出错，请重试。');
+            }
+        });
+        
+        // 添加回车键触发快速查询功能
+        document.getElementById('quickSearchTicker').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                window.location.href = 'stock_query.html?ticker=' + this.value;
             }
         });
     </script>
